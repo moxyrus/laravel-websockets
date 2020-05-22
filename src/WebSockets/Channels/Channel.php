@@ -52,7 +52,7 @@ class Channel
         $this->saveConnection($connection);
 
         $connection->send(json_encode([
-            'event' => 'pusher_internal:subscription_succeeded',
+            'event'   => 'pusher_internal:subscription_succeeded',
             'channel' => $this->channelName,
         ]));
     }
@@ -61,7 +61,7 @@ class Channel
     {
         unset($this->subscribedConnections[$connection->socketId]);
 
-        if (! $this->hasConnections()) {
+        if (!$this->hasConnections()) {
             DashboardLogger::vacated($connection, $this->channelName);
         }
     }
@@ -72,7 +72,7 @@ class Channel
 
         $this->subscribedConnections[$connection->socketId] = $connection;
 
-        if (! $hadConnectionsPreviously) {
+        if (!$hadConnectionsPreviously) {
             DashboardLogger::occupied($connection, $this->channelName);
         }
 
@@ -104,10 +104,15 @@ class Channel
         }
     }
 
+    public function getChannelName()
+    {
+        return $this->channelName;
+    }
+
     public function toArray(): array
     {
         return [
-            'occupied' => count($this->subscribedConnections) > 0,
+            'occupied'           => count($this->subscribedConnections) > 0,
             'subscription_count' => count($this->subscribedConnections),
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace BeyondCode\LaravelWebSockets\Console;
 
+use App\Repositories\ChatRepository;
 use BeyondCode\LaravelWebSockets\Facades\StatisticsLogger;
 use BeyondCode\LaravelWebSockets\Facades\WebSocketsRouter;
 use BeyondCode\LaravelWebSockets\Server\Logger\ConnectionLogger;
@@ -61,7 +62,7 @@ class StartWebSocketServer extends Command
         $browser = new Browser($this->loop, $connector);
 
         app()->singleton(StatisticsLoggerInterface::class, function () use ($browser) {
-            return new HttpStatisticsLogger(app(ChannelManager::class), $browser);
+            return new HttpStatisticsLogger(app(ChannelManager::class), $browser, new ChatRepository);
         });
 
         $this->loop->addPeriodicTimer(config('websockets.statistics.interval_in_seconds'), function () {

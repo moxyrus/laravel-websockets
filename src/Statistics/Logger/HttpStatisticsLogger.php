@@ -2,11 +2,13 @@
 
 namespace BeyondCode\LaravelWebSockets\Statistics\Logger;
 
+use App\Repositories\ChatRepository;
 use BeyondCode\LaravelWebSockets\Apps\App;
 use BeyondCode\LaravelWebSockets\Statistics\Http\Controllers\WebSocketStatisticsEntriesController;
 use BeyondCode\LaravelWebSockets\Statistics\Statistic;
 use BeyondCode\LaravelWebSockets\WebSockets\Channels\ChannelManager;
 use Clue\React\Buzz\Browser;
+use Psy\Util\Json;
 use function GuzzleHttp\Psr7\stream_for;
 use Ratchet\ConnectionInterface;
 
@@ -21,11 +23,16 @@ class HttpStatisticsLogger implements StatisticsLogger
     /** @var \Clue\React\Buzz\Browser */
     protected $browser;
 
-    public function __construct(ChannelManager $channelManager, Browser $browser)
+    /** @var ChatRepository */
+    protected $chatRepository;
+
+    public function __construct(ChannelManager $channelManager, Browser $browser, ChatRepository $repository)
     {
         $this->channelManager = $channelManager;
 
         $this->browser = $browser;
+
+        $this->chatRepository = $repository;
     }
 
     public function webSocketMessage(ConnectionInterface $connection)
@@ -58,7 +65,7 @@ class HttpStatisticsLogger implements StatisticsLogger
 
     protected function findOrMakeStatisticForAppId($appId): Statistic
     {
-        if (! isset($this->statistics[$appId])) {
+        if (!isset($this->statistics[$appId])) {
             $this->statistics[$appId] = new Statistic($appId);
         }
 
@@ -68,16 +75,23 @@ class HttpStatisticsLogger implements StatisticsLogger
     public function save()
     {
         foreach ($this->statistics as $appId => $statistic) {
-            if (! $statistic->isEnabled()) {
+            if (!$statistic->isEnabled()) {
                 continue;
             }
 
+            $chatsCollection = collect($this->channelManager->getChannels($appId));
+
             $postData = array_merge($statistic->toArray(), [
                 'secret' => App::findById($appId)->secret,
+                'chats'  => $chatsCollection->map(function ($chat) {
+                    return (object)[
+                        'peak_connection_count' => count($chat->getSubscribedConnections()),
+                        'chat_id'               => $this->chatRepository->getChatIdByWebsocketChannel($chat->getChannelName())
+                    ];
+                })->values()
             ]);
 
-            $this
-                ->browser
+            $this->browser
                 ->post(
                     action([WebSocketStatisticsEntriesController::class, 'store']),
                     ['Content-Type' => 'application/json'],
